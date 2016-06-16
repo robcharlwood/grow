@@ -37,7 +37,7 @@ class Document(object):
         self.pod = _pod
         self.collection = _collection
         try:
-            self.locale = _pod.normalize_locale(locale, default=self.default_locale)
+            self.locale = _pod.normalize_locale(locale, default=self._default_locale_from_collection)
         except IOError as exc:  # Document does not exist.
             if '[Errno 2] No such file or directory' in str(exc):
                 self.locale = None
@@ -61,8 +61,8 @@ class Document(object):
                 and self.pod_path == other.pod_path)
 
     def __getattr__(self, name):
-        if name == 'locale':
-            return self._locale_kwarg
+#        if name == 'locale':
+#            return self._locale_kwarg
         if name in self.fields:
             return self.fields[name]
         return object.__getattribute__(self, name)
@@ -72,20 +72,27 @@ class Document(object):
         if ('$localization' in self.fields
             and 'default_locale' in self.fields['$localization']):
             locale = self.fields['$localization']['default_locale']
-        elif (self.collection.localization
-              and 'default_locale' in self.collection.localization):
+            locale = locales.Locale.parse(locale)
+            if locale: locale.set_alias(self.pod)
+            return locale
+        return self._default_locale_from_collection
+
+    @webapp2.cached_property
+    def _default_locale_from_collection(self):
+        if (self.collection.localization
+            and 'default_locale' in self.collection.localization):
             locale = self.collection.localization['default_locale']
         else:
             locale = self.pod.podspec.default_locale
         locale = locales.Locale.parse(locale)
-        if locale:
-            locale.set_alias(self.pod)
+        if locale: locale.set_alias(self.pod)
         return locale
 
     @webapp2.cached_property
     def fields(self):
         tagged_fields = self.get_tagged_fields()
-        fields = utils.untag_fields(tagged_fields)
+        locale = self.locale or self._default_locale_from_collection
+        fields = utils.untag_fields(tagged_fields, locale=str(locale))
         if fields is None:
             return {}
         return fields

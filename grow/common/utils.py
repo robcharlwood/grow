@@ -31,7 +31,9 @@ except ImportError:
     from yaml import Loader as yaml_Loader
 
 
+LOCALIZED_KEY_REGEX = re.compile('(.*)@([\w|-]+)$')
 SENTINEL = object()
+SLUG_REGEX = re.compile(r'[\t !"#$%&\'()*\-/<=>?@\[\\\]^_`{|},.]+')
 
 
 def is_packaged_app():
@@ -67,24 +69,32 @@ def interactive_confirm(message, default=False):
     return False
 
 
-def walk(node, callback, parent_key=None):
+def walk(node, callback):
     if node is None:
         return
     for key in node:
+        callback(node, key)
         if isinstance(node, dict):
             item = node[key]
-        else:
+            new_key = callback(node, key)
+        elif isinstance(node, (list, set)):
             item = key
-
-        if isinstance(node, (dict)) and isinstance(item, (list, set)):
-            parent_key = key
-
         if isinstance(item, (list, set, dict)):
-            walk(item, callback, parent_key=parent_key)
-        else:
-            if isinstance(node, (list, set)):
-                key = parent_key
-            callback(item, key, node)
+            walk(item, callback)
+
+
+def update_keys_in_structure(node, callback):
+    if node is None:
+        return
+    for key in node:
+        callback(node, key)
+        if isinstance(node, dict):
+            item = node[key]
+            new_key = callback(key)
+        elif isinstance(node, (list, set)):
+            item = key
+        if isinstance(item, (list, set, dict)):
+            update_keys_in_structure(item, callback)
 
 
 def validate_name(name):
@@ -213,12 +223,11 @@ def dump_yaml(obj):
         obj, allow_unicode=True, width=800, default_flow_style=False)
 
 
-_slug_re = re.compile(r'[\t !"#$%&\'()*\-/<=>?@\[\\\]^_`{|},.]+')
 def slugify(text, delim=u'-'):
     if not isinstance(text, basestring):
         text = str(text)
     result = []
-    for word in _slug_re.split(text.lower()):
+    for word in SLUG_REGEX.split(text.lower()):
         word = word.encode('translit/long')
         if word:
             result.append(word)
@@ -240,26 +249,38 @@ class JsonEncoder(json.JSONEncoder):
 
 
 @memoize
-def untag_fields(fields):
+def untag_fields(fields, locale=None):
     """Untags fields, handling translation priority."""
     untagged_keys_to_add = {}
     nodes_and_keys_to_add = []
     nodes_and_keys_to_remove = []
-    def callback(item, key, node):
+    def callback(node, key):
         if not isinstance(key, basestring):
             return
-        if key.endswith('@#'):
+        if isinstance(node, list):
+            return
+        item = node[key]
+        match = LOCALIZED_KEY_REGEX.match(key)
+        if match:
+            untagged_key, locale_from_key = match.groups()
+            content = item
             nodes_and_keys_to_remove.append((node, key))
+            if locale == locale_from_key:
+                untagged_keys_to_add[untagged_key] = True
+                nodes_and_keys_to_add.append((node, untagged_key, content))
         if key.endswith('@'):
             untagged_key = key.rstrip('@')
             content = item
             nodes_and_keys_to_remove.append((node, key))
             untagged_keys_to_add[untagged_key] = True
             nodes_and_keys_to_add.append((node, untagged_key, content))
+        elif key.endswith('@#'):
+            nodes_and_keys_to_remove.append((node, key))
     walk(fields, callback)
     for node, key in nodes_and_keys_to_remove:
         if isinstance(node, dict):
-            del node[key]
+            if key in node:
+                del node[key]
     for node, untagged_key, content in nodes_and_keys_to_add:
         if isinstance(node, dict):
             node[untagged_key] = content
