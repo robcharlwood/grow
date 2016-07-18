@@ -1,6 +1,7 @@
 """An Env holds the environment context that a pod is running in."""
 
 import time
+from . import urls
 from protorpc import messages
 
 
@@ -20,7 +21,8 @@ class EnvConfig(messages.Message):
 
 class Env(object):
 
-    def __init__(self, config):
+    def __init__(self, config=None):
+        config = config or EnvConfig()
         self.name = config.name
         self.config = config
         self.host = config.host
@@ -34,7 +36,7 @@ class Env(object):
 
     @property
     def host(self):
-        return self.config.host or 'localhost'
+        return self.config.host
 
     @host.setter
     def host(self, value):
@@ -67,12 +69,15 @@ class Env(object):
         if ((self.port == 80 and self.scheme == 'http')
             or (self.port == 443 and self.scheme == 'https')):
             url_port = ''
+        if self.host is None:
+            error = 'Cannot create a full URL without specifying a host.'
+            raise urls.UrlValueError(error)
         return '{}://{}{}/'.format(self.scheme, self.host, url_port)
 
     def to_wsgi_env(self):
         return {
             'REQUEST_METHOD': 'GET',
-            'SERVER_NAME': self.host,
+            'SERVER_NAME': self.host or 'localhost',  # Default needed for werkzeug.
             'SERVER_PORT': str(self.port),
             'wsgi.url_scheme': self.scheme,
         }

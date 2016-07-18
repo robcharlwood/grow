@@ -55,7 +55,7 @@ class Pod(object):
         self.root = (root if self.storage.is_cloud_storage
                      else os.path.abspath(root))
         self.env = (env if env
-                    else environment.Env(environment.EnvConfig(host='localhost')))
+                    else environment.Env())
         self.locales = locales.Locales(pod=self)
         self.catalogs = catalog_holder.Catalogs(pod=self)
         self.logger = _logger

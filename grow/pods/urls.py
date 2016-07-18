@@ -1,15 +1,26 @@
 import os
 
 
+class Error(Exception):
+    pass
+
+
+class UrlValueError(Error, ValueError):
+    pass
+
+
 class Url(object):
 
     def __init__(self, path, host=None, port=None, scheme=None):
         self.path = path
-        self.host = 'localhost' if host is None else host
+        self.host = host
         self.port = 80 if port is None else port
         self.scheme = 'http' if scheme is None else scheme
 
     def __str__(self):
+        if self.host is None:
+            error = 'Cannot create a full URL without specifying a host.'
+            raise UrlValueError(error)
         url = '{}://{}'.format(self.scheme, self.host)
         if self.port != 80:
             url += ':{}'.format(self.port)
