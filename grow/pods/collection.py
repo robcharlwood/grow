@@ -55,7 +55,7 @@ class Collection(object):
         self.collection_path = regex.sub('', pod_path).strip('/')
         self.pod_path = pod_path
         self.basename = os.path.basename(self.collection_path)
-        self._blueprint_path = os.path.join(
+        self.blueprint_path = os.path.join(
             self.pod_path, Collection.BLUEPRINT_PATH)
 
     def __repr__(self):
@@ -122,7 +122,7 @@ class Collection(object):
     def exists(self):
         """Returns whether the collection exists, as determined by whether
         the collection's blueprint exists."""
-        return self.pod.file_exists(self._blueprint_path)
+        return self.pod.file_exists(self.blueprint_path)
 
     @classmethod
     def create(cls, collection_path, fields, pod):
@@ -160,7 +160,7 @@ class Collection(object):
     def yaml(self):
         if not self.exists:
             return {}
-        result = utils.parse_yaml(self.pod.read_file(self._blueprint_path))
+        result = utils.parse_yaml(self.pod.read_file(self.blueprint_path))
         if result is None:
             return {}
         return result
@@ -216,7 +216,7 @@ class Collection(object):
         if len(self.list_docs(include_hidden=True)):
             text = 'Collections that are not empty cannot be deleted.'
             raise CollectionNotEmptyError(text)
-        self.pod.delete_file(self._blueprint_path)
+        self.pod.delete_file(self.blueprint_path)
 
     def _owns_doc_at_path(self, pod_path):
         dir_name = os.path.dirname(pod_path)

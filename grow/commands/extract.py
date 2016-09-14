@@ -1,3 +1,4 @@
+from grow.pods import catalog_holder
 from grow.pods import pods
 from grow.pods import storage
 import click
@@ -39,8 +40,11 @@ import os
                    ' because some translation tools may not remove the "fuzzy"'
                    ' flag from messages even after a translation has been'
                    ' provided.')
+@click.option('--audit', default=False, is_flag=True,
+              help='Specify this flag to audit content for all untagged strings'
+                   ' instead of extracting.')
 def extract(pod_path, init, update, include_obsolete, localized,
-            include_header, locale, fuzzy_matching):
+            include_header, locale, fuzzy_matching, audit):
     """Extracts tagged messages from source files into a template catalog."""
     root = os.path.abspath(os.path.join(os.getcwd(), pod_path))
     pod = pods.Pod(root, storage=storage.FileStorage)
@@ -49,9 +53,16 @@ def extract(pod_path, init, update, include_obsolete, localized,
             include_obsolete=include_obsolete, localized=localized,
             use_fuzzy_matching=fuzzy_matching)
     catalogs = pod.get_catalogs()
-    catalogs.extract(include_obsolete=include_obsolete, localized=localized,
-                     include_header=include_header,
-                     use_fuzzy_matching=fuzzy_matching)
+    untagged_strings, extracted_catalogs = \
+        catalogs.extract(include_obsolete=include_obsolete, localized=localized,
+                         include_header=include_header,
+                         use_fuzzy_matching=fuzzy_matching, audit=audit)
+    if audit:
+        tables = catalog_holder.Catalogs.format_audit(
+            untagged_strings, extracted_catalogs)
+        # TODO: Use click.echo_via_pager; blocked by UnicodeDecodeError issue.
+        print tables
+        return
     if localized:
         return
     if init:
