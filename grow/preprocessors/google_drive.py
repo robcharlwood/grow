@@ -310,3 +310,15 @@ class GoogleSheetsPreprocessor(BaseGooglePreprocessor):
         gid = self.config.gid or '0'
         return GoogleSheetsPreprocessor._edit_url_format.format(
             id=self.config.id, gid=gid)
+
+
+class GoogleDrivePreprocessor(BaseGooglePreprocessor):
+    KIND = 'google_drive'
+
+    class Config(messages.Message):
+        path = messages.StringField(1)
+        id = messages.StringField(2)
+        convert = messages.BooleanField(3)
+
+    def execute(self, config):
+        raise NotImplementedError

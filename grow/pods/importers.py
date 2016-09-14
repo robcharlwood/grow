@@ -72,16 +72,18 @@ class Importer(object):
     def import_dir(self, dir_path):
         # TODO(jeremydw): Allow a custom syntax for translation importers.
         # Currently, assume one directory per locale.
-        for locale in os.listdir(dir_path):
-            locale_dir = os.path.join(dir_path, locale)
-            if locale.startswith('.') or os.path.isfile(locale_dir):
-                continue
-            for basename in os.listdir(locale_dir):
-                po_path = os.path.join(locale_dir, basename)
-                if basename.endswith('.po'):
-                    self.import_file(locale, po_path)
-                else:
-                    self.pod.logger.warning('Skipping: {}'.format(po_path))
+        paths = os.listdir(dir_path)
+        if paths:
+            for locale in dir_paths:
+                locale_dir = os.path.join(dir_path, locale)
+                if locale.startswith('.') or os.path.isfile(locale_dir):
+                    continue
+                for basename in os.listdir(locale_dir):
+                    po_path = os.path.join(locale_dir, basename)
+                    if basename.endswith('.po'):
+                        self.import_file(locale, po_path)
+                    else:
+                        self.pod.logger.warning('Skipping: {}'.format(po_path))
 
     def import_file(self, locale, po_path):
         if not os.path.exists(po_path):
