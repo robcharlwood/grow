@@ -131,7 +131,7 @@ class Collection(object):
         if collection.exists:
             raise CollectionExistsError('{} already exists.'.format(collection))
         fields = utils.dump_yaml(fields)
-        pod.write_file(collection._blueprint_path, fields)
+        pod.write_file(collection.blueprint_path, fields)
         return collection
 
     @classmethod
