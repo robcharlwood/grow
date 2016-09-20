@@ -256,6 +256,70 @@ class GoogleSheetsTranslator(base.Translator):
                     'fields': '*',
                 },
             })
+            requests.append({
+                'addConditionalFormatRule': {
+                    'index': 0,
+                    'rule': {
+                        'ranges': [{
+                            'sheetId': sheet_id,
+                            'startRowIndex': 0,
+                            'startColumnIndex': 1,
+                            'endColumnIndex': 1,
+                        }],
+                        'booleanRule': {
+                            'condition': {
+                                'type': 'BLANK',
+                            },
+                            'format': {
+                                'backgroundColor': {
+                                    'red': 255,
+                                    'blue': 255,
+                                    'green': 255,
+                                    'alpha': .75,
+                                },
+                            },
+                        },
+                    },
+                },
+            })
+#            requests.append({
+#              'addFilterView': {
+#                'title': 'Needs translation',
+#                'range': {
+#                    'sheetId': sheet_id,
+#                    'startRowIndex': 0,
+#                    'startColumnIndex': 1,
+#                    'endColumnIndex': 1,
+#                },
+#                'criteria': {
+#                    1: {
+#                        'condition': {
+#                            'type': 'BLANK',
+#                        },
+#                    },
+#                },
+#              }
+#            })
+#            requests.append({
+#                'setBasicFilter': {
+#                    'filter': {
+#                        'range': {
+#                            'sheetId': sheet_id,
+#                            'startRowIndex': 0,
+#                            'startColumnIndex': 1,
+#                            'endColumnIndex': 1,
+#                        },
+#                        'criteria': {
+#                            1: {
+#                                'condition': {
+#                                    'type': 'BLANK',
+#                                },
+#                            },
+#                        },
+#                    },
+#                },
+#            })
+#            print requests[-1]
         body = {'requests': requests}
         resp = service.spreadsheets().batchUpdate(
             spreadsheetId=spreadsheet_id, body=body).execute()
@@ -266,6 +330,7 @@ class GoogleSheetsTranslator(base.Translator):
         for sheet_id, catalog in sheet_ids_to_catalogs.iteritems():
             existing_values = self._download_sheet(spreadsheet_id, str(catalog.locale))
             existing_values.pop(0)  # Remove header row.
+            locale = str(catalog.locale)
             for value in existing_values:
                 source = value[0]
                 translation = value[1] if len(value) > 1 else None
@@ -284,6 +349,66 @@ class GoogleSheetsTranslator(base.Translator):
                     'rows': sheet['data'][0]['rowData']
                 },
             })
+            requests.append({
+                'addConditionalFormatRule': {
+                    'index': 0,
+                    'rule': {
+                        'ranges': [{
+                            'sheetId': sheet_id,
+                            'startRowIndex': 0,
+                            'startColumnIndex': 1,
+                            'endColumnIndex': 1,
+                        }],
+                        'booleanRule': {
+                            'condition': {
+                                'type': 'BLANK',
+                            },
+                            'format': {
+                                'backgroundColor': {
+                                    'red': 255,
+                                    'blue': 255,
+                                    'green': 255,
+                                    'alpha': .75,
+                                },
+                            },
+                        },
+                    },
+                },
+            })
+#            requests.append({
+#              'addFilterView': {
+#                  'filter': {
+#                      'title': 'Needs translation',
+#                      'namedRangeId': "de!B1:B26",
+#                      'criteria': {
+#                          1: {
+#                              'condition': {
+#                                  'type': 'BLANK',
+#                              },
+#                          },
+#                      },
+#                  },
+#              }
+#            })
+#            requests.append({
+#                'setBasicFilter': {
+#                    'filter': {
+#                        'range': {
+#                            'sheetId': sheet_id,
+#                            'startRowIndex': 0,
+#                            'startColumnIndex': 1,
+#                            'endColumnIndex': 1,
+#                        },
+#                        'criteria': {
+#                            1: {
+#                                'condition': {
+#                                    'type': 'BLANK',
+#                                },
+#                            },
+#                        },
+#                    },
+#                },
+#            })
         body = {'requests': requests}
         service = self._create_service()
         resp = service.spreadsheets().batchUpdate(
