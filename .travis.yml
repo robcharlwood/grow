@@ -6,6 +6,9 @@ cache:
   directories:
   - ./env/
   - ./gaenv/
+os:
+- linux
+- osx
 
 script:
 - make test-ci
