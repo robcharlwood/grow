@@ -221,14 +221,14 @@ class Collection(object):
     def _owns_doc_at_path(self, pod_path):
         dir_name = os.path.dirname(pod_path)
         doc_blueprint_path = os.path.join(dir_name, '_blueprint.yaml')
-        if doc_blueprint_path == self._blueprint_path:
+        if doc_blueprint_path == self.blueprint_path:
             return True
         parts = pod_path.split(os.sep)
         for i, part in enumerate(parts):
             path = os.sep.join(parts[:-i])
             doc_blueprint_path = os.path.join(path, '_blueprint.yaml')
             if self.pod.file_exists(doc_blueprint_path):
-                return doc_blueprint_path == self._blueprint_path
+                return doc_blueprint_path == self.blueprint_path
         return False
 
     def list_docs(self, order_by=None, locale=utils.SENTINEL, reverse=None,
