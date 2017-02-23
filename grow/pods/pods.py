@@ -23,6 +23,7 @@ import os
 import progressbar
 import re
 import time
+import yaml
 
 _handler = logging.StreamHandler()
 _formatter = logging.Formatter('[%(asctime)s] %(message)s', '%H:%M:%S')
@@ -89,10 +90,10 @@ class Pod(object):
     def _parse_yaml(self):
         try:
             return utils.parse_yaml(self.read_file('/podspec.yaml'))
-        except IOError as e:
+        except IOError:
             path = self.abs_path('/podspec.yaml')
-            if e.args[0] == 2 and e.filename:
-                raise PodDoesNotExistError('Pod not found in: {}'.format(path))
+            raise PodDoesNotExistError('Pod not found in: {}'.format(path))
+        except yaml.YAMLError:
             raise PodSpecParseError('Error parsing: {}'.format(path))
 
     @utils.cached_property
