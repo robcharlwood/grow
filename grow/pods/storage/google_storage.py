@@ -98,8 +98,8 @@ class CloudStorage(base_storage.BaseStorage):
         try:
             cloudstorage.delete(path)
         except cloudstorage.NotFoundError:
-            logging.error(filename)
-            raise IOError('File {} not found.'.format(filename))
+            logging.error(path)
+            raise IOError('File {} not found.'.format(path))
 
     @staticmethod
     def exists(filename):
