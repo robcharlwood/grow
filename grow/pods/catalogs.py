@@ -164,14 +164,14 @@ class Catalog(catalog.Catalog):
     def mo_modified(self):
         try:
             return self.pod.file_modified(self.mo_path)
-        except OSError:
+        except (OSError, IOError):
             return None
 
     @property
     def modified(self):
         try:
             return self.pod.file_modified(self.pod_path)
-        except OSError:
+        except (OSError, IOError):
             return None
 
     @property
