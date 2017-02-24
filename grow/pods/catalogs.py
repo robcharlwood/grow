@@ -1,5 +1,6 @@
 from babel import support
 from babel import util
+from babel._compat import StringIO
 from babel.messages import catalog
 from babel.messages import mofile
 from babel.messages import pofile
@@ -48,6 +49,16 @@ class Catalog(catalog.Catalog):
         po_file = self.pod.open_file(pod_path)
         try:
             babel_catalog = pofile.read_po(po_file, self.locale)
+        except AttributeError:
+            # if an attribute error is raised, then its probably because we
+            # are reading from appengine cloudstorage which returns a
+            # ReadBuffer object rather than a file like object. This would
+            # cause the code to raise an AttributeError ReadBuffer has no
+            # attribute readlines() or somethig similar. So we use babel's
+            # StringIO compatibility method to read the cloudstorage file in
+            # as a StringIO which babel can understand.
+            babel_catalog = pofile.read_po(
+                StringIO(po_file.read()), self.locale)
         finally:
             po_file.close()
         attr_names = [
