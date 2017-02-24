@@ -23,9 +23,17 @@ class CloudStorage(base_storage.BaseStorage):
 
     @staticmethod
     def open(filename, *args, **kwargs):
-        if 'mode' in kwargs and kwargs['mode'] is None:
-            kwargs['mode'] = 'r'
-        return cloudstorage.open(filename, *args, **kwargs)
+        if 'mode' in kwargs:
+            # cloudstorage doesnt differentiate between reading standard files
+            # and binary files and throws an exception - so if we are passed
+            # rb then we just convert to r.
+            if kwargs['mode'] is None or kwargs['mode'] == 'rb':
+                kwargs['mode'] = 'r'
+        try:
+            return cloudstorage.open(filename, *args, **kwargs)
+        except cloudstorage.NotFoundError:
+            logging.error(filename)
+            raise IOError('File {} not found.'.format(filename))
 
     @staticmethod
     def read(filename):
@@ -37,7 +45,11 @@ class CloudStorage(base_storage.BaseStorage):
 
     @staticmethod
     def modified(filename):
-        return cloudstorage.stat(filename).st_ctime
+        try:
+            return cloudstorage.stat(filename).st_ctime
+        except cloudstorage.NotFoundError:
+            logging.error(filename)
+            raise IOError('File {} not found.'.format(filename))
 
     @staticmethod
     def stat(filename):
@@ -83,7 +95,11 @@ class CloudStorage(base_storage.BaseStorage):
     @classmethod
     def delete(cls, path):
         path = CloudStorage.normalize_path(path)
-        cloudstorage.delete(path)
+        try:
+            cloudstorage.delete(path)
+        except cloudstorage.NotFoundError:
+            logging.error(filename)
+            raise IOError('File {} not found.'.format(filename))
 
     @staticmethod
     def exists(filename):
@@ -120,7 +136,11 @@ class CloudStorageLoader(jinja2.BaseLoader):
         path = os.path.join(self.path, template.lstrip('/'))
         try:
             source = CloudStorage.read(path)
-        except cloudstorage.NotFoundError:
+        # Our CloudStorage class methods raise an IOError rather than the 
+        # cloudstorage default of NotFoundError. We do this for compatibility
+        # with the rest of the code base which always assumes files are being 
+        # read and written to from real / local disk space. So catch IOError instead
+        except IOError:
             raise jinja2.TemplateNotFound(template)
         # TODO(jeremydw): Make this function properly.
         source = source.decode('utf-8')
