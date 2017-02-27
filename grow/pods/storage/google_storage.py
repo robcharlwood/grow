@@ -13,6 +13,7 @@ except ImportError:
 import os
 import jinja2
 import logging
+import mimetypes
 from grow.pods.storage import base_storage
 from grow.pods.storage import errors
 
@@ -81,13 +82,15 @@ class CloudStorage(base_storage.BaseStorage):
         if not path.startswith('/'):
             return '/' + path
         return path
-
+    
     @classmethod
-    def write(cls, path, content):
+    def write(cls, path, content, options=None, content_type=None):
         if isinstance(content, unicode):
             content = content.encode('utf-8')
-        path = CloudStorage.normalize_path(path)
-        file_obj = cls.open(path, mode='w')
+        path = cls.normalize_path(path)
+        ctype = content_type or mimetypes.guess_type(path)[0] or 'text/html'
+        file_obj = cls.open(
+            path, mode='w', options=options, content_type=ctype)
         file_obj.write(content)
         file_obj.close()
         return file_obj
