@@ -64,10 +64,21 @@ class CloudStorage(base_storage.BaseStorage):
         bucket, prefix = filename[1:].split('/', 1)
         bucket = '/' + bucket
         names = set()
-        for item in cloudstorage.listbucket(bucket, prefix=prefix):
-            name = item.filename[len(bucket) + len(prefix) + 1:]
-            if name and (recursive or '/' not in name):
-                names.add(name)
+        page_size = 20
+        items = cloudstorage.listbucket(
+            bucket, prefix=prefix, max_keys=page_size)
+        while True:
+            count = 0
+            for item in items:
+                count += 1
+                name = item.filename[len(bucket) + len(prefix) + 1:]
+                if name and (recursive or '/' not in name):
+                    names.add(name)
+            if count != page_size or count == 0:
+                break
+            items = cloudstorage.listbucket(
+                bucket, prefix=prefix, max_keys=page_size,
+                marker=item.filename)
         return list(names)
 
     @staticmethod
@@ -82,7 +93,7 @@ class CloudStorage(base_storage.BaseStorage):
         if not path.startswith('/'):
             return '/' + path
         return path
-    
+
     @classmethod
     def write(cls, path, content, options=None, content_type=None):
         if isinstance(content, unicode):
