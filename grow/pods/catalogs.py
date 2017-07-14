@@ -1,16 +1,18 @@
-from babel import support
+"""Translation catalogs."""
+
+from datetime import datetime
+import logging
+import os
+import re
+import textwrap
+import fnmatch
+import goslate
 from babel import util
 from babel.messages import catalog
 from babel.messages import mofile
 from babel.messages import pofile
 from babel.util import odict
-from datetime import datetime
 from grow.pods import messages
-import goslate
-import logging
-import os
-import re
-import textwrap
 
 
 class Catalog(catalog.Catalog):
@@ -256,18 +258,24 @@ class Catalog(catalog.Catalog):
         text = 'Machine translated {} strings: {}'
         logging.info(text.format(len(strings_to_translate), self.pod_path))
 
-    def _message_in_paths(self, message, paths):
+    @classmethod
+    def _message_in_paths(cls, message, paths):
         location_paths = set([path for path, unused_lineno in message.locations])
         for path in paths:
-            if path in location_paths:
-                return True
+            for location_path in location_paths:
+                # Support pod paths and filesystem paths for tab completion.
+                location_path = location_path.lstrip('/')
+                path = path.lstrip('/')
+                matched = fnmatch.fnmatch(location_path, path)
+                if matched:
+                    return True
         return False
 
     def list_untranslated(self, paths=None):
         """Returns untranslated messages, including fuzzy translations."""
         untranslated = []
         for message in self:
-            if paths and not self._message_in_paths(message, paths):
+            if paths and not Catalog._message_in_paths(message, paths):
                 continue
             # Ensure fuzzy messages have a message.id otherwise we'd include
             # the header as part of the results, which we don't want.

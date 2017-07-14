@@ -1,10 +1,11 @@
+"""Command to run the local development server."""
+
+import os
+import click
 from grow.pods import env
 from grow.pods import pods
 from grow.pods import storage
 from grow.server import manager
-import click
-import os
-import threading
 
 
 @click.command()
@@ -23,8 +24,12 @@ import threading
 @click.option('--preprocess/--no-preprocess', '-p/-np',
               default=True, is_flag=True,
               help='Whether to run preprocessors on server start.')
-def run(host, port, https, debug, browser, update_check, preprocess,
-        pod_path):
+@click.option('--ui/--no-ui', is_flag=True, default=True,
+              help='Whether to inject the Grow UI Tools.')
+@click.option('--deployment', default=None,
+              help='Name of the deployment to use.')
+def run(host, port, https, debug, browser, update_check, preprocess, ui,
+        pod_path, deployment):
     """Starts a development server for a single pod."""
     root = os.path.abspath(os.path.join(os.getcwd(), pod_path))
     scheme = 'https' if https else 'http'
@@ -32,6 +37,11 @@ def run(host, port, https, debug, browser, update_check, preprocess,
                            scheme=scheme, cached=False, dev=True)
     environment = env.Env(config)
     pod = pods.Pod(root, storage=storage.FileStorage, env=environment)
+    if deployment:
+        deployment_obj = pod.get_deployment(deployment)
+        pod.set_env(deployment_obj.config.env)
+    if not ui:
+        pod.disable(pod.FEATURE_UI)
     try:
         manager.start(pod, host=host, port=port, open_browser=browser,
                       debug=debug, preprocess=preprocess,

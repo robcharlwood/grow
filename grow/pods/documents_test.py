@@ -1,13 +1,13 @@
-import os
+"""Tests for documents."""
+
 import textwrap
 import unittest
-
+from grow.testing import testing
 from . import documents
 from . import locales
 from . import pods
 from . import routes
 from . import storage
-from grow.testing import testing
 
 
 class DocumentsTestCase(unittest.TestCase):
@@ -238,6 +238,52 @@ class DocumentsTestCase(unittest.TestCase):
         self.assertEqual('root_key_value', fr_doc.root_key)
         keys = ['$title', '$order', '$titles', 'key', 'root_key']
         self.assertItemsEqual(keys, fr_doc.fields.keys())
+
+    def test_default_locale_override(self):
+        pod = testing.create_pod()
+        pod.write_yaml('/podspec.yaml', {
+            'localization': {
+                'default_locale': 'en',
+                'locales': [
+                    'en',
+                    'de',
+                    'it',
+                ]
+            }
+        })
+        pod.write_file('/views/base.html', '{{doc.foo}}')
+        pod.write_yaml('/content/pages/_blueprint.yaml', {
+            '$path': '/{base}/',
+            '$view': '/views/base.html',
+            '$localization': {
+                'path': '/{locale}/{base}/',
+            },
+        })
+        pod.write_yaml('/content/pages/page.yaml', {
+            '$localization': {
+                'default_locale': 'de',
+            },
+            'foo': 'foo-base',
+            'foo@de': 'foo-de',
+        })
+        pod.write_yaml('/content/pages/page2.yaml', {
+            'foo': 'foo-base',
+            'foo@de': 'foo-de',
+        })
+        # Verify ability to override using the default locale.
+        controller, params = pod.match('/page/')
+        content = controller.render(params)
+        self.assertEqual('foo-de', content)
+        controller, params = pod.match('/en/page/')
+        content = controller.render(params)
+        self.assertEqual('foo-base', content)
+        # Verify default behavior otherwise.
+        controller, params = pod.match('/page2/')
+        content = controller.render(params)
+        self.assertEqual('foo-base', content)
+        controller, params = pod.match('/de/page2/')
+        content = controller.render(params)
+        self.assertEqual('foo-de', content)
 
     def test_locale_override(self):
         pod = testing.create_pod()
@@ -502,6 +548,7 @@ class DocumentsTestCase(unittest.TestCase):
                 ],
             },
         })
+        pod.podcache.reset()
         pod.routes.reset_cache()
         controller, params = pod.match('/de/page/')
         content = controller.render(params)
@@ -581,6 +628,109 @@ class DocumentsTestCase(unittest.TestCase):
         self.assertEqual([
             '/content/pages/foo.yaml',
         ], doc.locale_paths)
+
+    def test_dependency_nesting_jinja(self):
+        # Verify that dependencies work for nested documents.
+
+        pod = testing.create_pod()
+        pod.write_yaml('/podspec.yaml', {
+            'localization': {
+                'default_locale': 'en',
+                'locales': [
+                    'de',
+                    'en',
+                ],
+            }
+        })
+        pod.write_yaml('/content/pages/_blueprint.yaml', {
+            '$path': '/{base}/',
+            '$view': '/views/base.html',
+            '$localization': {
+                'path': '/{locale}/{base}/'
+            },
+        })
+        pod.write_file('/content/pages/page.yaml', 'partial: !g.doc /content/partials/partial.yaml')
+        pod.write_yaml('/content/partials/_blueprint.yaml', {})
+        pod.write_yaml('/content/partials/partial.yaml', {})
+        pod.write_yaml('/content/partials/partial@de.yaml', {})
+        pod.write_file(
+            '/views/base.html',
+            '{}{} {}'.format(
+                '{{doc.locale}}',
+                '{% for partial in g.docs(\'partials\') %} {{partial.locale}}{% endfor %}',
+                '{{g.doc(\'/content/partials/partial.yaml\').locale}}',
+            ),
+        )
+
+        controller, params = pod.match('/page/')
+        content = controller.render(params)
+        self.assertEqual('en en en', content)
+
+        dependents = pod.podcache.dependency_graph.get_dependents(
+            '/content/partials/partial.yaml')
+        self.assertEqual(set([
+            '/content/partials/partial.yaml',
+            '/content/pages/page.yaml',
+        ]), dependents)
+
+        controller, params = pod.match('/de/page/')
+        content = controller.render(params)
+        self.assertEqual('de de de', content)
+
+        dependents = pod.podcache.dependency_graph.get_dependents(
+            '/content/partials/partial@de.yaml')
+        self.assertEqual(set([
+            '/content/partials/partial@de.yaml',
+            '/content/pages/page.yaml',
+        ]), dependents)
+
+    def test_dependency_nesting_yaml(self):
+        # Verify that dependencies work for nested documents.
+
+        pod = testing.create_pod()
+        pod.write_yaml('/podspec.yaml', {
+            'localization': {
+                'default_locale': 'en',
+                'locales': [
+                    'de',
+                    'en',
+                ],
+            }
+        })
+        pod.write_yaml('/content/pages/_blueprint.yaml', {
+            '$path': '/{base}/',
+            '$view': '/views/base.html',
+            '$localization': {
+                'path': '/{locale}/{base}/'
+            },
+        })
+        pod.write_file('/content/pages/page.yaml', 'partial: !g.doc /content/partials/partial.yaml')
+        pod.write_yaml('/content/partials/_blueprint.yaml', {})
+        pod.write_yaml('/content/partials/partial.yaml', {})
+        pod.write_yaml('/content/partials/partial@de.yaml', {})
+        pod.write_file('/views/base.html', '{{doc.locale}} {{doc.partial.locale}}')
+
+        controller, params = pod.match('/page/')
+        content = controller.render(params)
+        self.assertEqual('en en', content)
+
+        dependents = pod.podcache.dependency_graph.get_dependents(
+            '/content/partials/partial.yaml')
+        self.assertEqual(set([
+            '/content/partials/partial.yaml',
+            '/content/pages/page.yaml',
+        ]), dependents)
+
+        controller, params = pod.match('/de/page/')
+        content = controller.render(params)
+        self.assertEqual('de de', content)
+
+        dependents = pod.podcache.dependency_graph.get_dependents(
+            '/content/partials/partial@de.yaml')
+        self.assertEqual(set([
+            '/content/partials/partial@de.yaml',
+            '/content/pages/page.yaml',
+        ]), dependents)
 
 
 if __name__ == '__main__':

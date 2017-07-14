@@ -1,13 +1,14 @@
+"""Tests for the grow pod."""
+
+import os
+import unittest
+import mock
+import jinja2
+from grow import preprocessors
+from grow.testing import testing
 from . import pods
 from . import static
 from . import storage
-from .. import preprocessors
-from grow.common import utils
-from grow.testing import testing
-import jinja2
-import mock
-import os
-import unittest
 
 
 class PodTest(unittest.TestCase):
@@ -15,6 +16,11 @@ class PodTest(unittest.TestCase):
     def setUp(self):
         self.dir_path = testing.create_test_pod_dir()
         self.pod = pods.Pod(self.dir_path, storage=storage.FileStorage)
+
+    def test_disable(self):
+        self.assertTrue(self.pod.is_enabled('ui'))
+        self.pod.disable('ui')
+        self.assertFalse(self.pod.is_enabled('ui'))
 
     def test_eq(self):
         pod = pods.Pod(self.dir_path, storage=storage.FileStorage)
@@ -187,6 +193,7 @@ class PodTest(unittest.TestCase):
 
     def test_custom_preprocessor(self):
         self.pod.preprocess(['custom'])
+        # pylint: disable=no-member
         self.assertEqual(self.pod._custom_preprocessor_value, 'testing123')
 
     def test_dump_static_files_without_extension(self):

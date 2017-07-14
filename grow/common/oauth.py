@@ -1,13 +1,15 @@
+"""Common OAuth functionality."""
+
+import os
+
 # Silence "Loading" messages from keyring.
 import logging
 log = logging.getLogger('keyring.backend')
 log.setLevel(logging.WARNING)
 
-from . import utils
 from oauth2client import client
 from oauth2client import service_account
 from oauth2client import tools
-import os
 
 try:
     from oauth2client.contrib import appengine
@@ -23,6 +25,8 @@ DEFAULT_STORAGE_KEY = 'Grow SDK'
 BROWSER_API_KEY = 'AIzaSyDCb_WtWJnlLPdL8IGLvcVhXAjaBHbRY5E'
 
 _CLEARED_AUTH_KEYS = {}
+
+DEFAULT_AUTH_KEY_FILE = 'auth-key.json'
 
 
 def get_storage(key, username):
@@ -47,6 +51,9 @@ def get_credentials_and_storage(scope, storage_key=DEFAULT_STORAGE_KEY):
 
 def get_or_create_credentials(scope, storage_key=DEFAULT_STORAGE_KEY):
     key_file = os.getenv('AUTH_KEY_FILE')
+    # If AUTH_KEY_FILE is unset, use default auth key file if it exists.
+    if not key_file and os.path.exists(DEFAULT_AUTH_KEY_FILE):
+        key_file = DEFAULT_AUTH_KEY_FILE
     if key_file:
         key_file = os.path.expanduser(key_file)
         return (service_account.

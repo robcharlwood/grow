@@ -1,5 +1,5 @@
-from webob import exc as webob_exc
-import jinja2
+"""Grow local development server."""
+
 import logging
 import mimetypes
 import os
@@ -7,27 +7,22 @@ import re
 import sys
 import traceback
 import urllib
+import jinja2
 import webob
-import werkzeug
-
-# Allows "import grow" and "from grow import <name>".
-sys.path.extend([os.path.join(os.path.dirname(__file__), '..', '..')])
-
-from grow.common import sdk_utils
-from grow.common import utils
-from grow.pods import errors
-from grow.pods import storage
-from grow.pods import ui
-
-from werkzeug import exceptions
+# NOTE: exc imported directly, webob.exc doesn't work when frozen.
+from webob import exc as webob_exc
 from werkzeug import routing
 from werkzeug import utils as werkzeug_utils
 from werkzeug import wrappers
 from werkzeug import serving
 from werkzeug import wsgi
+from ..common import sdk_utils
+from ..common import utils
+from ..pods import errors
+from ..pods import ui
 
 
-class Request(werkzeug.BaseRequest):
+class Request(wrappers.BaseRequest):
     pass
 
 

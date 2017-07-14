@@ -1,9 +1,10 @@
+"""Command to install grow project dependencies."""
+
+import os
+import click
 from grow.common import sdk_utils
-from grow.common import utils
 from grow.pods import pods
 from grow.pods import storage
-import click
-import os
 
 
 @click.command()
@@ -17,5 +18,5 @@ def install(pod_path, gerrit):
     if necessary. Then, runs install commands. Also optionally installs the
     Gerrit Code Review commit hook."""
     root = os.path.abspath(os.path.join(os.getcwd(), pod_path))
-    pod = pods.Pod(root, storage=storage.FileStorage)
+    pod = pods.Pod(root, storage=storage.FileStorage, load_extensions=False)
     sdk_utils.install(pod, gerrit=gerrit)

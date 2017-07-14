@@ -38,8 +38,8 @@ develop:
 	  echo " You must install libyaml from source: http://pyyaml.org/wiki/LibYAML"; \
 	fi
 	$(MAKE) build-ui
+	./env/bin/pip install --upgrade pip
 	./env/bin/pip install -r requirements-dev.txt
-	./env/bin/pip install --upgrade PyYAML==3.10
 
 build-ui:
 	@npm --version > /dev/null || { \
@@ -68,9 +68,15 @@ develop-linux:
 	  python-all-dev zip \
 	  python-pip \
 	  zip
+	sudo pip install --upgrade --force-reinstall pyyaml
 	sudo pip install --upgrade pip
 	sudo pip install --upgrade six
 	$(MAKE) develop
+
+pylint:
+	. env/bin/activate
+	./env/bin/pylint --errors-only \
+	  $(target)
 
 test:
 	. env/bin/activate
@@ -100,10 +106,10 @@ test-gae:
 	. gaenv/bin/activate
 	./gaenv/bin/pip install -r requirements-dev.txt
 	./gaenv/bin/pip install gaenv
-	./gaenv/bin/pip install NoseGAE==0.5.8
+	./gaenv/bin/pip install NoseGAE==0.5.10
 	# https://github.com/faisalraja/gaenv/issues/11
 	cat requirements.txt > ./gaenv/requirements-gae.txt
-	echo "pyasn1-modules>=0.0.5" >> ./gaenv/requirements-gae.txt
+	echo "pyasn1-modules>=0.0.8" >> ./gaenv/requirements-gae.txt
 	./gaenv/bin/gaenv -r ./gaenv/requirements-gae.txt --lib lib --no-import .
 	NOSEGAE=1 ./gaenv/bin/nosetests \
 	  -v \
@@ -115,9 +121,14 @@ test-gae:
 	  --gae-lib-root=$(HOME)/google_appengine/ \
 	  $(target)
 
+test-pylint:
+	pylint --errors-only \
+	  $(target)
+
 test-ci:
 	$(MAKE) build-ui
 	$(MAKE) test-nosetests
+	$(MAKE) test-pylint
 	$(MAKE) test-gae
 
 prep-release:
@@ -182,6 +193,8 @@ release-ci:
 	pyinstaller grow.spec
 	chmod +x dist/grow
 	cd dist && zip -r $(FILENAME_CI) grow && cd ..
+	./dist/grow
+	./dist/grow build ./grow/testing/testdata/pod/
 	@echo "Built: dist/$(FILENAME_CI)"
 
 ensure-master:

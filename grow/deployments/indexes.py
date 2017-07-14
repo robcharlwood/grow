@@ -31,9 +31,17 @@ class Diff(object):
 
     @classmethod
     def _format_author(cls, author, include_email=True):
+        if not author:
+            return ''
+        author_name = author.name
+        author_email = author.email
+        if isinstance(author_name, unicode):
+            author_name = author_name.encode('utf-8')
+        if isinstance(author_email, unicode):
+            author_email = author_email.encode('utf-8')
         if include_email:
-            return '{} <{}>'.format(author.name, author.email) if author else ''
-        return author.name if author else ''
+            return '{} <{}>'.format(author_name, author_email)
+        return author_name
 
     @classmethod
     def _make_diff_row(cls, color, label, message):
@@ -159,7 +167,7 @@ class Diff(object):
         return protojson.encode_message(message)
 
     @classmethod
-    def apply(cls, message, paths_to_content, write_func, delete_func,
+    def apply(cls, message, paths_to_content, write_func, batch_write_func, delete_func,
               threaded=True, batch_writes=False):
         if pool is None:
             text = 'Deployment is unavailable in this environment.'
@@ -173,7 +181,7 @@ class Diff(object):
 
         def run_with_progress(func, *args):
             func(*args)
-            bar.update(bar.currval + 1)
+            bar.update(bar.value + 1)
 
         if batch_writes:
             writes_paths_to_contents = {}
@@ -185,7 +193,7 @@ class Diff(object):
                     paths_to_content[file_message.path]
             deletes_paths = [file_message.path for file_message in diff.deletes]
             if writes_paths_to_contents:
-                write_func(writes_paths_to_contents)
+                batch_write_func(writes_paths_to_contents)
             if deletes_paths:
                 delete_func(deletes_paths)
         else:

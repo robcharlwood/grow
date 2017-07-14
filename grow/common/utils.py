@@ -1,16 +1,8 @@
-from grow.pods import errors
-try:
-    import cStringIO as StringIO
-except ImportError:
-    try:
-        import StringIO
-    except ImportError:
-        from io import StringIO
-import bs4
+"""Common grow utility functions."""
+
 import csv as csv_lib
 import functools
 import gettext
-import html2text
 import imp
 import json
 import logging
@@ -19,14 +11,18 @@ import re
 import sys
 import threading
 import time
-import translitcodec
 import urllib
 import yaml
+import bs4
+import html2text
+import translitcodec  # pylint: disable=unused-import
+from grow.pods import errors
 
 # The CLoader implementation of the PyYaml loader is orders of magnitutde
 # faster than the default pure Python loader. CLoader is available when
 # libyaml is installed on the system.
 try:
+    # pylint: disable=ungrouped-imports
     from yaml import CLoader as yaml_Loader
 except ImportError:
     logging.warning('Warning: libyaml missing, using slower yaml parser.')
@@ -47,7 +43,9 @@ class UnavailableError(Error):
 
 
 def is_packaged_app():
+    """Returns whether the environment is a packaged app."""
     try:
+        # pylint: disable=pointless-statement,protected-access
         sys._MEIPASS
         return True
     except AttributeError:
@@ -57,6 +55,7 @@ def is_packaged_app():
 def is_appengine():
     """Returns whether the environment is Google App Engine."""
     try:
+        # pylint: disable=unused-variable
         import google.appengine
         return True
     except ImportError:
@@ -73,6 +72,7 @@ def get_git():
 
 def get_grow_dir():
     if is_packaged_app():
+        # pylint: disable=no-member,protected-access
         return os.path.join(sys._MEIPASS)
     return os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
 
@@ -103,7 +103,7 @@ def interactive_confirm(message, default=False, input_func=None):
     return default
 
 
-def walk(node, callback, parent_key=None):
+def walk(node, callback, parent_key=None, parent_node=None):
     if node is None:
         return
     for key in node:
@@ -116,11 +116,11 @@ def walk(node, callback, parent_key=None):
             parent_key = key
 
         if isinstance(item, (list, set, dict)):
-            walk(item, callback, parent_key=parent_key)
+            walk(item, callback, parent_key=parent_key, parent_node=node)
         else:
             if isinstance(node, (list, set)):
                 key = parent_key
-            callback(item, key, node)
+            callback(item, key, node, parent_node=parent_node)
 
 
 def validate_name(name):
@@ -230,8 +230,9 @@ def make_yaml_loader(pod, doc=None):
             locale = doc._locale_kwarg if doc else None
             pod_path = doc.pod_path if doc else None
             def func(path):
-                pod.podcache.dependency_graph.add(pod_path, path)
-                return pod.get_doc(path, locale=locale)
+                doc = pod.get_doc(path, locale=locale)
+                pod.podcache.dependency_graph.add(pod_path, doc.pod_path)
+                return doc
             return self._construct_func(node, func)
 
         def construct_gettext(self, node):
@@ -299,10 +300,11 @@ class DummyDict(object):
 
 class JsonEncoder(json.JSONEncoder):
 
-    def default(self, obj):
-        if hasattr(obj, 'timetuple'):
-            return time.mktime(obj.timetuple())
-        raise TypeError(repr(obj) + ' is not JSON serializable.')
+    # pylint: disable=method-hidden
+    def default(self, o):
+        if hasattr(o, 'timetuple'):
+            return time.mktime(o.timetuple())
+        raise TypeError(repr(o) + ' is not JSON serializable.')
 
 
 def LocaleIterator(iterator, locale):
@@ -327,21 +329,6 @@ def get_rows_from_csv(pod, path, locale=SENTINEL):
     return rows
 
 
-def import_string(import_name, paths):
-    """Imports & returns an object using dot notation, e.g. 'A.B.C'"""
-    # ASSUMPTION: import_name refers to a value in a module (i.e. must have at
-    # least 2 parts)
-    if '.' not in import_name:
-        raise ImportError
-    part1, part2 = import_name.split('.', 1)
-    if '.' in part2:
-        f, part1_path, desc = imp.find_module(part1, paths)
-        return import_string(part2, [part1_path])
-    else:
-        module = imp.load_module(part1, *imp.find_module(part1, paths))
-        return getattr(module, part2)
-
-
 class ProgressBarThread(threading.Thread):
 
     def __init__(self, bar, enabled, *args, **kwargs):
@@ -352,7 +339,7 @@ class ProgressBarThread(threading.Thread):
     def run(self):
         super(ProgressBarThread, self).run()
         if self.enabled:
-            self.bar.update(self.bar.currval + 1)
+            self.bar.update(self.bar.value + 1)
 
 
 def clean_html(content, convert_to_markdown=False):

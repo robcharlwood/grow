@@ -1,18 +1,17 @@
 """Collections contain content documents and blueprints."""
 
-from . import document_fields
-from . import documents
-from . import messages
-from grow.common import structures
-from grow.common import utils
-from grow.pods import locales
 import copy
-import json
 import logging
 import operator
 import os
 import re
 import sys
+from grow.common import structures
+from grow.common import utils
+from grow.pods import locales
+from . import document_fields
+from . import documents
+from . import messages
 
 
 class Error(Exception):
@@ -98,13 +97,13 @@ class Collection(object):
 
     def _owns_doc_at_path(self, pod_path):
         dir_name = os.path.dirname(pod_path)
-        doc_blueprint_path = os.path.join(dir_name, '_blueprint.yaml')
+        doc_blueprint_path = os.path.join(dir_name, self.BLUEPRINT_PATH)
         if doc_blueprint_path == self.blueprint_path:
             return True
         parts = pod_path.split(os.sep)
         for i, part in enumerate(parts):
             path = os.sep.join(parts[:-i])
-            doc_blueprint_path = os.path.join(path, '_blueprint.yaml')
+            doc_blueprint_path = os.path.join(path, self.BLUEPRINT_PATH)
             if self.pod.file_exists(doc_blueprint_path):
                 return doc_blueprint_path == self.blueprint_path
         return False
@@ -131,7 +130,7 @@ class Collection(object):
             for dir_name in dirs:
                 pod_path = os.path.join(root, dir_name)
                 pod_path = pod_path.replace(pod.root, '')
-                col_path = os.path.join(pod_path, '_blueprint.yaml')
+                col_path = os.path.join(pod_path, cls.BLUEPRINT_PATH)
                 if pod.file_exists(col_path):
                     items.append(pod.get_collection(pod_path))
         return items
@@ -155,7 +154,8 @@ class Collection(object):
 
     @utils.cached_property
     def fields(self):
-        fields = document_fields.DocumentFields._untag(self.tagged_fields)
+        untag = document_fields.DocumentFields.untag
+        fields = untag(self.tagged_fields, env_name=self.pod.env.name)
         return {} if not fields else fields
 
     @utils.cached_property
@@ -247,12 +247,10 @@ class Collection(object):
             localized_path = documents.Document.localize_path(pod_path, locale)
             if self.pod.file_exists(localized_path):
                 pod_path = localized_path
-
         cached = self.pod.podcache.collection_cache.get_document(
             self, pod_path, locale)
         if cached:
             return cached
-
         doc = documents.Document(
             pod_path, locale=locale, _pod=self.pod, _collection=self)
         self.pod.podcache.collection_cache.add_document(doc)
@@ -315,10 +313,13 @@ class Collection(object):
     # collection.
     docs = list_docs
 
-    def list_servable_documents(self, include_hidden=False, locales=None, inject=None):
+    def list_servable_documents(self, include_hidden=False, locales=None,
+            inject=None, doc_list=None):
+        if not doc_list:
+            inject = False if inject is None else inject
+            doc_list = self.list_docs(include_hidden=include_hidden, inject=inject)
         docs = []
-        inject = False if inject is None else inject
-        for doc in self.list_docs(include_hidden=include_hidden, inject=inject):
+        for doc in doc_list:
             if (self._get_builtin_field('draft')
                     or not doc.has_serving_path()
                     or not doc.view
@@ -336,6 +337,15 @@ class Collection(object):
 
             docs.append(doc)
         return docs
+
+    def list_servable_document_locales(self, pod_path, include_hidden=False,
+            locales=None):
+        sorted_docs = structures.SortedCollection(key=None)
+        doc = self.get_doc(pod_path)
+        sorted_docs.insert(doc)
+        self._add_localized_docs(sorted_docs, pod_path, utils.SENTINEL, doc)
+        return self.list_servable_documents(
+            include_hidden=include_hidden, locales=locales, doc_list=sorted_docs)
 
     def titles(self, title_name=None):
         if title_name is None:
