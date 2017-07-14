@@ -94,7 +94,6 @@ class Diff(object):
 
     @classmethod
     def create(cls, index, theirs, repo=None):
-        git = common_utils.get_git()
         try:
             git = common_utils.get_git()
         except common_utils.UnavailableError:
