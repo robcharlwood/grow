@@ -82,6 +82,7 @@ class CloudStorage(base_storage.BaseStorage):
             items = cloudstorage.listbucket(
                 bucket, prefix=prefix, max_keys=page_size, marker=item.filename
             )
+        return names
 
     @staticmethod
     def JinjaLoader(path):
