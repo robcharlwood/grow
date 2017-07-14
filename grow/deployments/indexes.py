@@ -95,6 +95,11 @@ class Diff(object):
     @classmethod
     def create(cls, index, theirs, repo=None):
         git = common_utils.get_git()
+        try:
+            git = common_utils.get_git()
+        except common_utils.UnavailableError:
+            git = None
+
         diff = messages.DiffMessage()
         diff.indexes = []
         diff.indexes.append(theirs or messages.IndexMessage())
@@ -136,7 +141,7 @@ class Diff(object):
             diff.deletes.append(file_message)
 
         # What changed in the pod between deploy commits.
-        if (repo is not None
+        if (git and repo is not None
             and index.commit and index.commit.sha
             and theirs.commit and theirs.commit.sha):
             try:
@@ -151,7 +156,7 @@ class Diff(object):
                 logging.info('Unable to determine changes between deploys.')
 
         # If on the original deploy show commit log messages only.
-        elif (repo is not None
+        elif (git and repo is not None
               and index.commit and index.commit.sha):
             what_changed = repo.git.log(
                   '--date=short',
@@ -169,10 +174,13 @@ class Diff(object):
     @classmethod
     def apply(cls, message, paths_to_content, write_func, batch_write_func, delete_func,
               threaded=True, batch_writes=False):
-        if pool is None:
+        if threaded and pool is None:
             text = 'Deployment is unavailable in this environment.'
             raise common_utils.UnavailableError(text)
-        thread_pool = pool.ThreadPool(cls.POOL_SIZE)
+
+        thread_pool = None
+        if threaded and pool:
+            thread_pool = pool.ThreadPool(cls.POOL_SIZE)
         diff = message
         num_files = len(diff.adds) + len(diff.edits) + len(diff.deletes)
         text = 'Deploying: %(value)d/{} (in %(elapsed)s)'
@@ -200,26 +208,26 @@ class Diff(object):
             bar.start()
             for file_message in diff.adds:
                 content = paths_to_content[file_message.path]
-                if threaded:
+                if threaded and thread_pool:
                     args = (write_func, file_message.path, content)
                     thread_pool.apply_async(run_with_progress, args=args)
                 else:
                     run_with_progress(write_func, file_message.path, content)
             for file_message in diff.edits:
                 content = paths_to_content[file_message.path]
-                if threaded:
+                if threaded and thread_pool:
                     args = (write_func, file_message.path, content)
                     thread_pool.apply_async(run_with_progress, args=args)
                 else:
                     run_with_progress(write_func, file_message.path, content)
             for file_message in diff.deletes:
-                if threaded:
+                if threaded and thread_pool:
                     args = (delete_func, file_message.path)
                     thread_pool.apply_async(run_with_progress, args=args)
                 else:
                     run_with_progress(delete_func, file_message.path)
 
-        if threaded:
+        if threaded and thread_pool:
             thread_pool.close()
             thread_pool.join()
         if not batch_writes:
