@@ -8,6 +8,7 @@ import textwrap
 import fnmatch
 import goslate
 from babel import util
+from babel._compat import StringIO
 from babel.messages import catalog
 from babel.messages import mofile
 from babel.messages import pofile
@@ -52,8 +53,20 @@ class Catalog(catalog.Catalog):
             try:
                 babel_catalog = pofile.read_po(po_file, self.locale)
             except:
-                self.pod.logger.error('Error parsing catalog for: {}'.format(self.locale))
-                raise
+                # if an exception is raised, then there is a chance its because
+                # we are reading the po file from appengine cloudstorage.
+                # CloudStorage returns a ReadBuffer object rather than a file
+                # like object. This would cause the code to exception as
+                # ReadBuffer has no attribute readlines(). So we use babel's
+                # StringIO compatibility method to read the cloudstorage file
+                # in as a StringIO instead.
+                try:
+                    babel_catalog = pofile.read_po(
+                        StringIO(po_file.read()), self.locale)
+                except:
+                    self.pod.logger.error(
+                        'Error parsing catalog for: {}'.format(self.locale))
+                    raise
         finally:
             po_file.close()
         attr_names = [
@@ -159,14 +172,14 @@ class Catalog(catalog.Catalog):
     def mo_modified(self):
         try:
             return self.pod.file_modified(self.mo_path)
-        except OSError:
+        except (OSError, IOError):
             return None
 
     @property
     def modified(self):
         try:
             return self.pod.file_modified(self.pod_path)
-        except OSError:
+        except (OSError, IOError):
             return None
 
     @property
