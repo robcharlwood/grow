@@ -48,7 +48,6 @@ class CloudStorage(base_storage.BaseStorage):
 
     @staticmethod
     def modified(filename):
-        return cloudstorage.stat(filename).st_ctime
         try:
             return cloudstorage.stat(filename).st_ctime
         except cloudstorage.NotFoundError:
