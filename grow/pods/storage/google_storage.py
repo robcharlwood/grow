@@ -68,7 +68,13 @@ class CloudStorage(base_storage.BaseStorage):
         names = set()
         page_size = 20
         items = cloudstorage.listbucket(
-            bucket, prefix=prefix, max_keys=page_size)
+            bucket, prefix=prefix, max_keys=page_size,
+            retry_params=cloudstorage.RetryParams(
+                initial_delay=1.0,
+                max_delay=5.0,
+                backoff_factor=2,
+                max_retries=15,
+                urlfetch_timeout=60))
         while True:
             count = 0
             for item in items:
@@ -79,7 +85,15 @@ class CloudStorage(base_storage.BaseStorage):
             if count != page_size or count == 0:
                 break
             items = cloudstorage.listbucket(
-                bucket, prefix=prefix, max_keys=page_size, marker=item.filename
+                bucket, prefix=prefix, max_keys=page_size,
+                marker=item.filename,
+                retry_params=cloudstorage.RetryParams(
+                    initial_delay=1.0,
+                    max_delay=5.0,
+                    backoff_factor=2,
+                    max_retries=15,
+                    urlfetch_timeout=60
+                )
             )
         return names
 
