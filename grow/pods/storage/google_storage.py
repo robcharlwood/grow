@@ -70,7 +70,6 @@ class CloudStorage(base_storage.BaseStorage):
         items = cloudstorage.listbucket(
             bucket, prefix=prefix, max_keys=page_size,
             retry_params=cloudstorage.RetryParams(
-                initial_delay=1.0,
                 max_delay=5.0,
                 backoff_factor=2,
                 max_retries=15,
@@ -88,7 +87,6 @@ class CloudStorage(base_storage.BaseStorage):
                 bucket, prefix=prefix, max_keys=page_size,
                 marker=item.filename,
                 retry_params=cloudstorage.RetryParams(
-                    initial_delay=1.0,
                     max_delay=5.0,
                     backoff_factor=2,
                     max_retries=15,
